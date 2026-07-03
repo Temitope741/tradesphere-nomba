@@ -141,26 +141,15 @@ export default function VendorProducts() {
       return;
     }
 
-    // Read file and convert to Base64
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (reader.result) {
-        setFormData({ ...formData, imageUrl: reader.result as string });
-        toast({
-          title: "Image loaded",
-          description: "Image preview ready"
-        });
-      }
-    };
-    reader.onerror = () => {
-      toast({
-        title: "Upload error",
-        description: `Failed to read ${file.name}`,
-        variant: "destructive"
-      });
-    };
-    reader.readAsDataURL(file);
+    // Keep the raw File for upload on submit, and show an instant local
+    // preview via an object URL (no need to read the whole file into memory).
+    setImageFile(file);
+    setImagePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
   };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -176,13 +165,35 @@ export default function VendorProducts() {
     setLoading(true);
 
     try {
+      let imageUrl = formData.imageUrl;
+
+      // If a new image was selected, upload it to Cloudinary first and
+      // use the returned secure URL instead of the local preview.
+      if (imageFile) {
+        setUploadingImage(true);
+        try {
+          const uploadResponse = await api.uploadImage(imageFile);
+          imageUrl = uploadResponse.data.url;
+        } catch (uploadError: any) {
+          toast({
+            title: "Image upload failed",
+            description: uploadError.message || "Could not upload the image. Please try again.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          setUploadingImage(false);
+          return;
+        }
+        setUploadingImage(false);
+      }
+
       const productData = {
         name: formData.name,
         description: formData.description,
         price: parseFloat(formData.price),
         stockQuantity: parseInt(formData.stockQuantity),
         category: formData.category,
-        imageUrl: formData.imageUrl || '',
+        imageUrl: imageUrl || '',
         sku: formData.sku,
       };
 
@@ -222,6 +233,11 @@ export default function VendorProducts() {
       imageUrl: product.imageUrl || '',
       sku: product.sku || '',
     });
+    setImagePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return '';
+    });
+    setImageFile(null);
     setIsDialogOpen(true);
   };
 
@@ -256,6 +272,11 @@ export default function VendorProducts() {
       imageUrl: '',
       sku: '',
     });
+    setImagePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return '';
+    });
+    setImageFile(null);
   };
 
   return (
@@ -386,16 +407,16 @@ export default function VendorProducts() {
                     type="file"
                     accept="image/*"
                     onChange={handleImageChange}
-                    disabled={loading}
+                    disabled={loading || uploadingImage}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     Max size: 5MB. Supported: JPG, PNG, WEBP, GIF
                   </p>
-                  {formData.imageUrl && (
+                  {(imagePreview || formData.imageUrl) && (
                     <div className="mt-3">
                       <p className="text-sm font-medium mb-2">Preview:</p>
                       <img
-                        src={formData.imageUrl}
+                        src={imagePreview || formData.imageUrl}
                         alt="Product preview"
                         className="h-32 w-32 object-cover rounded-lg border"
                       />

@@ -334,6 +334,37 @@ class ApiClient {
   }
 
   // ===============================
+  // IMAGE UPLOAD
+  // ===============================
+
+  async uploadImage(file: File) {
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const headers: HeadersInit = {};
+    if (this.token) {
+      headers["Authorization"] = `Bearer ${this.token}`;
+    }
+    // Note: no Content-Type header here — the browser sets it automatically
+    // with the correct multipart boundary when the body is a FormData object.
+
+    const response = await fetch(`${API_URL}/upload/image`, {
+      method: "POST",
+      headers,
+      body: formData,
+      credentials: "include",
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Image upload failed");
+    }
+
+    return data as { success: boolean; data: { url: string; publicId: string } };
+  }
+
+  // ===============================
   // PRODUCT MANAGEMENT
   // ===============================
 

@@ -13,6 +13,12 @@ import {
   ShieldCheck,
   Zap,
   CheckCircle2,
+  Search,
+  CreditCard,
+  Truck,
+  Store,
+  Wallet,
+  Quote,
 } from 'lucide-react';
 import api from '@/services/api';
 
@@ -112,6 +118,14 @@ function HeroPaymentCards() {
 
   return (
     <div className="relative hidden lg:block h-[420px]" aria-hidden="true">
+      {/* Hero image */}
+      <img
+        src="https://images.unsplash.com/photo-1563013544-824ae1b704d3?fm=jpg&q=80&w=1200&auto=format&fit=crop"
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover rounded-3xl shadow-elegant"
+      />
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-background/40 via-transparent to-transparent" />
+
       {/* Product mini-card */}
       <div className="absolute top-4 right-6 w-60 rounded-2xl bg-card border shadow-card p-4 rotate-[-6deg] motion-safe:animate-float">
         <div className="flex items-center gap-3">

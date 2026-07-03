@@ -31,6 +31,14 @@ const errorHandler = (err, req, res, next) => {
     const message = 'Invalid token';
     error = { message, statusCode: 401 };
   }
+  
+  // Multer upload errors (file too large, unexpected field, etc.)
+  if (err.name === 'MulterError') {
+    const message = err.code === 'LIMIT_FILE_SIZE'
+      ? 'Image is too large. Maximum size is 5MB'
+      : err.message;
+    error = { message, statusCode: 400 };
+  }
 
   if (err.name === 'TokenExpiredError') {
     const message = 'Token expired';

@@ -18,6 +18,7 @@ const orderRoutes = require('./routes/order.routes');
 const reviewRoutes = require('./routes/review.routes');
 const wishlistRoutes = require('./routes/wishlist.routes');
 const vendorRoutes = require('./routes/vendor.routes');
+const uploadRoutes = require('./routes/upload.routes');
 
 const errorHandler = require('./middleware/errorHandler');
 
@@ -97,6 +98,8 @@ app.use('/api/wishlist', wishlistRoutes);
 console.log('✅ Wishlist routes registered');
 app.use('/api/vendor', vendorRoutes);
 console.log('✅ Vendor routes registered');
+app.use('/api/upload', uploadRoutes);
+console.log('✅ Upload routes registered');
 
 // 404 handler
 app.use('*', (req, res) => {
