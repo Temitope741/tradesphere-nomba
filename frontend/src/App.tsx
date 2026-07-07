@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { ShoppingAssistant } from "@/components/ui/ShoppingAssistant";
 import HomePage from "./pages/HomePage";
 import AuthPage from "./pages/AuthPage";
 import ShopPage from "./pages/ShopPage";
@@ -48,6 +49,7 @@ const App = () => (
             </Routes>
           </main>
           <Footer />
+          <ShoppingAssistant />
         </div>
       </BrowserRouter>
     </TooltipProvider>

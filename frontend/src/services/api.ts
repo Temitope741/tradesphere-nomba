@@ -47,6 +47,28 @@ type ProductPayload = {
   sku: string;
 };
 
+type AssistantMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
+type AssistantProduct = {
+  _id: string;
+  name: string;
+  price: number;
+  imageUrl: string;
+  stockQuantity: number;
+  averageRating: number;
+  vendor?: { fullName: string };
+  category?: { name: string };
+};
+
+type AssistantResponse = {
+  success: boolean;
+  message: string;
+  products: AssistantProduct[];
+};
+
 const buildQueryString = (params: QueryParams = {}) => {
   const searchParams = new URLSearchParams();
 
@@ -334,37 +356,6 @@ class ApiClient {
   }
 
   // ===============================
-  // IMAGE UPLOAD
-  // ===============================
-
-  async uploadImage(file: File) {
-    const formData = new FormData();
-    formData.append("image", file);
-
-    const headers: HeadersInit = {};
-    if (this.token) {
-      headers["Authorization"] = `Bearer ${this.token}`;
-    }
-    // Note: no Content-Type header here — the browser sets it automatically
-    // with the correct multipart boundary when the body is a FormData object.
-
-    const response = await fetch(`${API_URL}/upload/image`, {
-      method: "POST",
-      headers,
-      body: formData,
-      credentials: "include",
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Image upload failed");
-    }
-
-    return data as { success: boolean; data: { url: string; publicId: string } };
-  }
-
-  // ===============================
   // PRODUCT MANAGEMENT
   // ===============================
 
@@ -392,6 +383,17 @@ class ApiClient {
     return this.request(`/orders/${id}/status`, {
       method: "PUT",
       body: JSON.stringify({ status }),
+    });
+  }
+
+  // ===============================
+  // AI SHOPPING ASSISTANT
+  // ===============================
+
+  async chatWithAssistant(messages: AssistantMessage[]) {
+    return this.request<AssistantResponse>("/assistant/chat", {
+      method: "POST",
+      body: JSON.stringify({ messages }),
     });
   }
 }
