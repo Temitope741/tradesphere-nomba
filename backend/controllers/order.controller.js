@@ -3,6 +3,7 @@ const Order = require('../models/Order.model');
 const Product = require('../models/Product.model');
 const Cart = require('../models/Cart.model');
 const ApiResponse = require('../utils/ApiResponse');
+const { createCheckoutOrder, getCheckoutTransaction } = require('../utils/nomba');
 
 // @desc    Create new order
 // @route   POST /api/orders
@@ -21,7 +22,7 @@ exports.createOrder = async (req, res, next) => {
 
     // Get cart
     const cart = await Cart.findOne({ user: req.user._id }).populate('items.product');
-    
+
     if (!cart || cart.items.length === 0) {
       return ApiResponse.error(res, 'Cart is empty', 400);
     }
@@ -32,7 +33,7 @@ exports.createOrder = async (req, res, next) => {
 
     for (const item of cart.items) {
       const product = item.product;
-      
+
       if (!product || !product.isActive) {
         return ApiResponse.error(res, `Product ${item.product?._id} not available`, 404);
       }
@@ -64,6 +65,10 @@ exports.createOrder = async (req, res, next) => {
     } else if (paymentMethod === 'bank_transfer') {
       paymentStatus = 'pending';
     } else if (paymentMethod === 'cash_on_delivery') {
+      paymentStatus = 'pending';
+    } else if (paymentMethod === 'nomba') {
+      // Payment happens after redirect to Nomba's hosted checkout page —
+      // the webhook (or the verify-payment poll) flips this to 'paid'.
       paymentStatus = 'pending';
     }
 
@@ -99,13 +104,44 @@ exports.createOrder = async (req, res, next) => {
       { items: [] }
     );
 
-    ApiResponse.success(res, orders, 'Order placed successfully', 201);
+    // ─── Nomba: create one checkout order covering the whole cart total ──────
+    // Multi-vendor carts create several sub-orders above (one per vendor) —
+    // all of them share the same paymentReference so a single Nomba payment
+    // marks all of them paid together.
+    let checkoutLink = null;
+
+    if (paymentMethod === 'nomba') {
+      const sharedReference = `TS-${req.user._id}-${Date.now()}`;
+
+      await Order.updateMany(
+        { _id: { $in: orders.map((o) => o._id) } },
+        { paymentReference: sharedReference }
+      );
+
+      try {
+        const nombaOrder = await createCheckoutOrder({
+          orderReference: sharedReference,
+          amount: totalAmount,
+          customerEmail: req.user.email,
+          callbackUrl: `${process.env.FRONTEND_URL}/checkout/callback?ref=${sharedReference}`,
+        });
+
+        checkoutLink = nombaOrder.checkoutLink;
+      } catch (nombaError) {
+        console.error('Nomba checkout creation failed:', nombaError);
+        // Orders already exist as 'pending' in the DB — nothing lost, but
+        // tell the customer immediately so they know payment didn't start.
+        return ApiResponse.error(res, 'Could not start payment with Nomba. Please try again.', 502);
+      }
+    }
+
+    ApiResponse.success(res, { orders, checkoutLink }, 'Order placed successfully', 201);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Verify Paystack payment
+// @desc    Verify payment status (Nomba)
 // @route   POST /api/orders/verify-payment
 // @access  Private
 exports.verifyPayment = async (req, res, next) => {
@@ -116,47 +152,40 @@ exports.verifyPayment = async (req, res, next) => {
       return ApiResponse.error(res, 'Payment reference is required', 400);
     }
 
-    // Verify payment with Paystack
-    const https = require('https');
-    const options = {
-      hostname: 'api.paystack.co',
-      port: 443,
-      path: `/transaction/verify/${reference}`,
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`
-      }
-    };
+    // Ask Nomba directly — this is real server-side verification, not just
+    // trusting our own DB (which the webhook updates asynchronously).
+    let nombaTransaction;
+    try {
+      nombaTransaction = await getCheckoutTransaction(reference);
+    } catch (nombaError) {
+      console.error('Nomba transaction fetch failed:', nombaError);
+      // Fall back to whatever our DB currently says (e.g. webhook already
+      // landed) rather than failing the request outright.
+      const orders = await Order.find({ paymentReference: reference });
+      const allPaid = orders.length > 0 && orders.every((o) => ['paid', 'approved'].includes(o.paymentStatus));
+      return ApiResponse.success(res, { orders, paid: allPaid }, allPaid ? 'Payment verified successfully' : 'Payment still pending');
+    }
 
-    const paystackReq = https.request(options, (paystackRes) => {
-      let data = '';
+    const isPaid = nombaTransaction?.success === true;
 
-      paystackRes.on('data', (chunk) => {
-        data += chunk;
-      });
+    if (isPaid) {
+      await Order.updateMany(
+        { paymentReference: reference, paymentStatus: { $ne: 'paid' } },
+        { paymentStatus: 'paid' }
+      );
+    }
 
-      paystackRes.on('end', async () => {
-        const response = JSON.parse(data);
+    const orders = await Order.find({ paymentReference: reference });
 
-        if (response.data.status === 'success') {
-          await Order.updateMany(
-            { paymentReference: reference },
-            { paymentStatus: 'paid' }
-          );
+    if (!orders.length) {
+      return ApiResponse.error(res, 'No orders found for this reference', 404);
+    }
 
-          ApiResponse.success(res, response.data, 'Payment verified successfully');
-        } else {
-          ApiResponse.error(res, 'Payment verification failed', 400);
-        }
-      });
-    });
-
-    paystackReq.on('error', (error) => {
-      console.error('Paystack verification error:', error);
-      ApiResponse.error(res, 'Payment verification failed', 500);
-    });
-
-    paystackReq.end();
+    ApiResponse.success(
+      res,
+      { orders, paid: isPaid },
+      isPaid ? 'Payment verified successfully' : 'Payment still pending'
+    );
   } catch (error) {
     next(error);
   }
@@ -197,7 +226,7 @@ exports.approvePayment = async (req, res, next) => {
     console.log('User:', req.user._id);
 
     const order = await Order.findById(req.params.id);
-    
+
     if (!order) {
       console.log('Order not found');
       return ApiResponse.error(res, 'Order not found', 404);
@@ -307,25 +336,13 @@ exports.updateOrderStatus = async (req, res, next) => {
     next(error);
   }
 };
-// // At the VERY END of your order.controller.js file, 
-// // make sure you have ALL these exports:
 
-// // You should see these exports at the bottom:
-// exports.createOrder = async (req, res, next) => { /* ... */ };
-// exports.verifyPayment = async (req, res, next) => { /* ... */ };
-// exports.confirmBankTransfer = async (req, res, next) => { /* ... */ };
-// exports.approvePayment = async (req, res, next) => { /* ... */ };  // ⚠️ THIS MUST BE HERE!
-// exports.getMyOrders = async (req, res, next) => { /* ... */ };
-// exports.getOrder = async (req, res, next) => { /* ... */ };
-// exports.updateOrderStatus = async (req, res, next) => { /* ... */ };
-
-// // OR if you have module.exports at the end, it should look like:
-// module.exports = {
-//   createOrder,
-//   verifyPayment,
-//   confirmBankTransfer,
-//   approvePayment,  // ⚠️ THIS MUST BE HERE!
-//   getMyOrders,
-//   getOrder,
-//   updateOrderStatus
-// };
+module.exports = {
+  createOrder: exports.createOrder,
+  verifyPayment: exports.verifyPayment,
+  confirmBankTransfer: exports.confirmBankTransfer,
+  approvePayment: exports.approvePayment,
+  getMyOrders: exports.getMyOrders,
+  getOrder: exports.getOrder,
+  updateOrderStatus: exports.updateOrderStatus
+};

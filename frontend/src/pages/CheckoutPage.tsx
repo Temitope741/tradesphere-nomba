@@ -27,7 +27,7 @@ interface Cart {
   totalPrice?: number;
 }
 
-type PaymentMethod = 'cash_on_delivery' | 'bank_transfer' | 'card';
+type PaymentMethod = 'cash_on_delivery' | 'bank_transfer' | 'nomba';
 
 export default function CheckoutPage() {
   const [cart, setCart] = useState<Cart | null>(null);
@@ -48,7 +48,7 @@ export default function CheckoutPage() {
   const fetchCart = async () => {
     try {
       const token = localStorage.getItem('token');
-      
+
       if (!token) {
         navigate('/auth');
         return;
@@ -81,13 +81,13 @@ export default function CheckoutPage() {
   // Calculate totals from cart items (real-time calculation)
   const { subtotal, totalItems } = useMemo(() => {
     const cartItems = cart?.items || [];
-    
+
     const subtotal = cartItems.reduce((sum, item) => {
       return sum + (item.product.price * item.quantity);
     }, 0);
-    
+
     const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-    
+
     return { subtotal, totalItems };
   }, [cart?.items]);
 
@@ -103,79 +103,6 @@ export default function CheckoutPage() {
       description: `${label} copied to clipboard`,
     });
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handlePaystackPayment = () => {
-    // @ts-ignore
-    const PaystackPop = window.PaystackPop;
-    
-    if (!PaystackPop) {
-      toast({
-        title: "Error",
-        description: "Payment system not loaded. Please refresh the page.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const handler = PaystackPop.setup({
-      key: 'pk_test_f7754f4152a7f87bb6234371ce9465a2aa232c99', // Replace with your Paystack public key
-      email: localStorage.getItem('userEmail') || 'customer@example.com',
-      amount: total * 100, // Amount in kobo
-      currency: 'NGN',
-      ref: '' + Math.floor((Math.random() * 1000000000) + 1),
-      callback: function(response: any) {
-        placeOrderWithPayment(response.reference);
-      },
-      onClose: function() {
-        toast({
-          title: "Payment cancelled",
-          description: "You cancelled the payment process.",
-          variant: "destructive",
-        });
-      }
-    });
-    
-    handler.openIframe();
-  };
-
-  const placeOrderWithPayment = async (paymentReference: string) => {
-    setSubmitting(true);
-
-    try {
-      const orderData = {
-        shippingAddress,
-        phone,
-        paymentMethod: 'card',
-        paymentReference
-      };
-
-      const response = await api.createOrder(orderData);
-
-      if (response.success) {
-        // Verify payment
-        await api.request('/orders/verify-payment', {
-          method: 'POST',
-          body: JSON.stringify({ reference: paymentReference })
-        });
-
-        toast({
-          title: "Order placed successfully!",
-          description: "Your payment has been confirmed.",
-        });
-
-        navigate('/orders');
-      }
-    } catch (error: any) {
-      console.error('Order error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to place order. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setSubmitting(false);
-    }
   };
 
   const placeOrder = async () => {
@@ -206,11 +133,6 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (paymentMethod === 'card') {
-      handlePaystackPayment();
-      return;
-    }
-
     setSubmitting(true);
 
     try {
@@ -224,6 +146,13 @@ export default function CheckoutPage() {
       const response = await api.createOrder(orderData);
 
       if (response.success) {
+        // Nomba: redirect to the hosted checkout page — card and bank
+        // transfer are both handled there, no separate widget needed.
+        if (paymentMethod === 'nomba' && response.data?.checkoutLink) {
+          window.location.href = response.data.checkoutLink;
+          return; // navigating away, nothing else to do here
+        }
+
         if (paymentMethod === 'bank_transfer') {
           toast({
             title: "Order placed!",
@@ -283,7 +212,7 @@ export default function CheckoutPage() {
                     required
                   />
                 </div>
-                
+
                 <div>
                   <Label htmlFor="phone">Phone Number *</Label>
                   <Input
@@ -324,7 +253,7 @@ export default function CheckoutPage() {
                     </div>
                   </label>
 
-                  {/* Bank Transfer */}
+                  {/* Manual Bank Transfer (existing flow, unchanged) */}
                   <label className={`flex items-center space-x-3 cursor-pointer p-4 border-2 rounded-lg hover:bg-accent transition-colors ${
                     paymentMethod === 'bank_transfer' ? 'border-primary bg-primary/5' : 'border-gray-200'
                   }`}>
@@ -338,27 +267,27 @@ export default function CheckoutPage() {
                     />
                     <Building2 className="h-5 w-5 text-primary" />
                     <div className="flex-1">
-                      <div className="font-semibold">Bank Transfer</div>
-                      <div className="text-sm text-muted-foreground">Transfer directly to our bank account</div>
+                      <div className="font-semibold">Bank Transfer (Manual)</div>
+                      <div className="text-sm text-muted-foreground">Transfer directly and submit your reference</div>
                     </div>
                   </label>
 
-                  {/* Card Payment */}
+                  {/* Nomba — card or transfer, handled on Nomba's hosted page */}
                   <label className={`flex items-center space-x-3 cursor-pointer p-4 border-2 rounded-lg hover:bg-accent transition-colors ${
-                    paymentMethod === 'card' ? 'border-primary bg-primary/5' : 'border-gray-200'
+                    paymentMethod === 'nomba' ? 'border-primary bg-primary/5' : 'border-gray-200'
                   }`}>
                     <input
                       type="radio"
                       name="payment"
-                      value="card"
-                      checked={paymentMethod === 'card'}
+                      value="nomba"
+                      checked={paymentMethod === 'nomba'}
                       onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
                       className="w-4 h-4 text-primary"
                     />
                     <CreditCard className="h-5 w-5 text-primary" />
                     <div className="flex-1">
-                      <div className="font-semibold">Card Payment</div>
-                      <div className="text-sm text-muted-foreground">Pay securely with your debit/credit card</div>
+                      <div className="font-semibold">Pay Online (Card / Transfer)</div>
+                      <div className="text-sm text-muted-foreground">Pay securely — powered by Nomba</div>
                     </div>
                     <Badge variant="secondary" className="text-xs">Secure</Badge>
                   </label>
@@ -442,6 +371,12 @@ export default function CheckoutPage() {
                     </CardContent>
                   </Card>
                 )}
+
+                {paymentMethod === 'nomba' && (
+                  <p className="text-sm text-muted-foreground px-1">
+                    You'll be redirected to Nomba's secure checkout page to complete your payment by card or bank transfer.
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -496,7 +431,7 @@ export default function CheckoutPage() {
                   onClick={placeOrder}
                   disabled={submitting || !shippingAddress || !phone || (paymentMethod === 'bank_transfer' && !transferReference)}
                 >
-                  {submitting ? 'Processing...' : paymentMethod === 'card' ? 'Proceed to Payment' : 'Place Order'}
+                  {submitting ? 'Processing...' : paymentMethod === 'nomba' ? 'Proceed to Payment' : 'Place Order'}
                 </Button>
 
                 <Button

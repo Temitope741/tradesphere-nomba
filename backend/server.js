@@ -24,6 +24,7 @@ const wishlistRoutes = require('./routes/wishlist.routes');
 const vendorRoutes = require('./routes/vendor.routes');
 const uploadRoutes = require('./routes/upload.routes');
 const assistantRoutes = require('./routes/assistant.routes');
+const webhookRoutes = require('./routes/webhook.routes');
 
 // Error Handler
 const errorHandler = require('./middleware/errorHandler');
@@ -129,6 +130,9 @@ console.log("✅ Upload routes registered");
 // ✅ AI Shopping Assistant
 app.use("/api/assistant", assistantRoutes);
 console.log("✅ Assistant routes registered");
+
+app.use("/api/webhooks", webhookRoutes);
+console.log("✅ Webhook routes registered");
 
 // ===============================
 // 404 HANDLER
