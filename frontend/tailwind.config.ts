@@ -16,6 +16,7 @@ export default {
       fontFamily: {
         display: ['"Space Grotesk"', 'sans-serif'],
         'mono-price': ['"JetBrains Mono"', 'monospace'],
+        editorial: ['"Cormorant Garamond"', 'serif'],
       },
       colors: {
         border: "hsl(var(--border))",

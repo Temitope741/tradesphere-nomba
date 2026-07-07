@@ -246,117 +246,172 @@ export default function ProductDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {/* Product Image */}
-          <div className="rounded-lg overflow-hidden bg-muted h-[400px] lg:h-[500px]">
-            {product.imageUrl ? (
-              <img
-                src={product.imageUrl}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Package className="h-24 w-24 text-muted-foreground" />
-              </div>
-            )}
+      {/* ── Immersive hero: dark glass panel over a blurred backdrop of the
+          product's own photo, echoing the reference design's mood-lit,
+          gold-accented configurator card. ── */}
+      <section className="relative overflow-hidden bg-neutral-900 text-gray-100">
+        {/* Blurred ambient backdrop, built from the product's own image */}
+        {product.imageUrl && (
+          <div className="absolute inset-0">
+            <img
+              src={product.imageUrl}
+              alt=""
+              aria-hidden="true"
+              className="w-full h-full object-cover scale-110 blur-2xl opacity-40"
+            />
           </div>
+        )}
+        <div className="absolute inset-0" />
 
-          {/* Product Info */}
-          <div>
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h1 className="text-3xl lg:text-4xl font-bold mb-2">{product.name}</h1>
-                <p className="text-muted-foreground">
-                  by {product.vendor?.fullName || 'Unknown Vendor'}
-                </p>
+        <div className="relative z-10 container mx-auto px-4 py-8">
+          <Button
+            variant="ghost"
+            onClick={() => navigate(-1)}
+            className="mb-6 text-white/80 hover:text-white hover:bg-white/10"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr_1fr] gap-10 items-center pb-8">
+            {/* Left: brand / headline */}
+            <div>
+              <div className="flex items-center gap-2 text-sm text-amber-200/80 mb-4">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />
+                {product.vendor?.fullName || 'Unknown Vendor'}
               </div>
+              <h1 className="text-3xl lg:text-4xl font-bold uppercase tracking-tight text-amber-100 leading-tight mb-4">
+                {product.name}
+              </h1>
+              <div className="flex items-center gap-3 flex-wrap">
+                <Badge variant="outline" className="border-amber-200/30 text-amber-100 bg-white/5">
+                  {product.category?.name || 'Uncategorized'}
+                </Badge>
+                <div className="flex items-center gap-1 text-sm text-white/70">
+                  <Star className="h-4 w-4 fill-amber-300 text-amber-300" />
+                  <span>{product.averageRating?.toFixed(1) || '0.0'}</span>
+                  <span className="text-white/40">({product.totalReviews || reviews.length})</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Center: floating product image */}
+            <div className="flex items-center justify-center">
+              <div className="relative w-full max-w-xs aspect-square">
+                {product.imageUrl ? (
+                  <img
+                    src={product.imageUrl}
+                    alt={product.name}
+                    className="w-full h-full object-contain drop-shadow-[0_30px_40px_rgba(0,0,0,0.5)]"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center rounded-2xl bg-white/5">
+                    <Package className="h-20 w-20 text-white/30" />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right: glass control panel */}
+            <div className="relative rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-6">
               <Button
-                variant={isInWishlist ? "default" : "ghost"}
+                variant="ghost"
                 size="icon"
                 onClick={toggleWishlist}
+                className="absolute top-4 right-4 text-white/70 hover:text-amber-200 hover:bg-white/10"
               >
-                <Heart className={`h-5 w-5 ${isInWishlist ? 'fill-current' : ''}`} />
+                <Heart className={`h-5 w-5 ${isInWishlist ? 'fill-amber-300 text-amber-300' : ''}`} />
               </Button>
-            </div>
 
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex items-center">
-                <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                <span className="ml-1 font-semibold">
-                  {product.averageRating?.toFixed(1) || '0.0'}
-                </span>
-              </div>
-              <span className="text-muted-foreground">
-                ({product.totalReviews || reviews.length} reviews)
-              </span>
-              <Badge>{product.category?.name || 'Uncategorized'}</Badge>
-            </div>
-
-            <div className="text-4xl font-bold text-primary mb-6">
-              ₦{product.price.toLocaleString()}
-            </div>
-
-            <p className="text-muted-foreground mb-6 leading-relaxed">
-              {product.description}
-            </p>
-
-            <div className="space-y-4 mb-6">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold">Stock:</span>
-                <span className={product.stockQuantity > 0 ? 'text-green-600' : 'text-red-600'}>
-                  {product.stockQuantity > 0
-                    ? `${product.stockQuantity} available`
-                    : 'Out of stock'}
-                </span>
-              </div>
-              {product.sku && (
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold">SKU:</span>
-                  <span className="text-muted-foreground">{product.sku}</span>
+              <div className="space-y-6">
+                {/* Quantity, styled like the reference's SIZE selector */}
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-white/40 mb-2">Quantity</p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      disabled={quantity <= 1}
+                      className="h-9 w-9 rounded-full border border-white/15 flex items-center justify-center text-white/80 hover:border-amber-200/60 hover:text-amber-100 disabled:opacity-30 transition-colors"
+                    >
+                      −
+                    </button>
+                    <span className="h-9 w-12 rounded-full border border-amber-200/60 bg-amber-200/10 flex items-center justify-center font-semibold text-amber-100">
+                      {quantity}
+                    </span>
+                    <button
+                      onClick={() => setQuantity(Math.min(product.stockQuantity, quantity + 1))}
+                      disabled={quantity >= product.stockQuantity}
+                      className="h-9 w-9 rounded-full border border-white/15 flex items-center justify-center text-white/80 hover:border-amber-200/60 hover:text-amber-100 disabled:opacity-30 transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
 
-            <Separator className="my-6" />
+                {/* Stock level, styled like the reference's SLEEVE LENGTH slider (read-only) */}
+                <div>
+                  <div className="flex justify-between items-baseline mb-2">
+                    <p className="text-xs uppercase tracking-widest text-white/40">Stock level</p>
+                    <span className="text-xs text-amber-100">
+                      {product.stockQuantity > 0 ? `${product.stockQuantity} available` : 'Out of stock'}
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-amber-300 to-amber-500"
+                      style={{ width: `${Math.min(100, (product.stockQuantity / 50) * 100)}%` }}
+                    />
+                  </div>
+                </div>
 
-            <div className="flex items-center gap-4 mb-6">
-              <div className="flex items-center border rounded-lg">
+                {/* Rating, styled like the reference's CHEST slider (read-only) */}
+                <div>
+                  <div className="flex justify-between items-baseline mb-2">
+                    <p className="text-xs uppercase tracking-widest text-white/40">Rating</p>
+                    <span className="text-xs text-amber-100">
+                      {(product.averageRating || 0).toFixed(1)} / 5
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-amber-300 to-amber-500"
+                      style={{ width: `${((product.averageRating || 0) / 5) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                <Separator className="bg-white/10" />
+
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl font-bold text-amber-100">
+                    ₦{product.price.toLocaleString()}
+                  </span>
+                </div>
+
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  disabled={quantity <= 1}
+                  onClick={addToCart}
+                  disabled={product.stockQuantity === 0}
+                  className="w-full rounded-full bg-amber-200 text-neutral-900 hover:bg-amber-100 font-semibold h-12"
                 >
-                  -
-                </Button>
-                <span className="px-4 font-semibold">{quantity}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setQuantity(Math.min(product.stockQuantity, quantity + 1))}
-                  disabled={quantity >= product.stockQuantity}
-                >
-                  +
+                  <ShoppingCart className="mr-2 h-4 w-4" />
+                  {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart'}
                 </Button>
               </div>
-              <Button
-                className="flex-1"
-                size="lg"
-                onClick={addToCart}
-                disabled={product.stockQuantity === 0}
-              >
-                <ShoppingCart className="mr-2 h-5 w-5" />
-                {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart'}
-              </Button>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ── Everything below stays in the site's normal light theme ── */}
+      <div className="container mx-auto px-4 py-12">
+        <div className="max-w-3xl mb-12">
+          <h2 className="text-xl font-semibold mb-3">Description</h2>
+          <p className="text-muted-foreground leading-relaxed">{product.description}</p>
+          {product.sku && (
+            <p className="text-sm text-muted-foreground mt-4">
+              <span className="font-semibold">SKU:</span> {product.sku}
+            </p>
+          )}
         </div>
 
         {/* Reviews Section */}

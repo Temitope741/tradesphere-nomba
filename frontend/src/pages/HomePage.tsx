@@ -40,7 +40,7 @@ interface Category {
   description: string;
 }
 
-// ─── Skeleton Components ───────────────────────────────────────────────────────
+// ─── Skeleton Components 
 
 function ProductSkeleton() {
   return (
@@ -69,10 +69,7 @@ function CategorySkeleton() {
   );
 }
 
-// ─── Product Image (fade-in + skeleton, zero layout shift) ────────────────────
-// Container keeps a locked aspect-square footprint regardless of load state,
-// so nothing on the page shifts while the image streams in. A soft skeleton
-// shows underneath until the image actually paints, then it fades/blurs up.
+// ─── Product Image
 
 function ProductImage({ src, alt }: { src: string; alt: string }) {
   const [loaded, setLoaded] = useState(false);
@@ -98,9 +95,7 @@ function ProductImage({ src, alt }: { src: string; alt: string }) {
   );
 }
 
-// ─── Hero: live payment card (decorative mock, not real transaction data) ─────
-// Small looping counter that visualizes "sell → get paid → payout" — the
-// actual value proposition — rather than a stock photo. Purely cosmetic.
+// ─── Hero Section
 
 function usePulsingAmount(base: number, step: number) {
   const [amount, setAmount] = useState(base);
