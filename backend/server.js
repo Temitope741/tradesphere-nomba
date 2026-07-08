@@ -37,6 +37,7 @@ app.use(helmet());
 const allowedOrigins = [
   process.env.CLIENT_URL,
   process.env.LOCAL_URL,
+  "https://tradesphere-1-yzn8.onrender.com",
   "http://localhost:5173",
   "http://localhost:8080",
   "http://localhost:8081"

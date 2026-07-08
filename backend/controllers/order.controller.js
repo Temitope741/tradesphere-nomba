@@ -98,16 +98,11 @@ exports.createOrder = async (req, res, next) => {
       orders.push(order);
     }
 
-    // Clear cart after successful order
-    await Cart.findOneAndUpdate(
-      { user: req.user._id },
-      { items: [] }
-    );
-
     // ─── Nomba: create one checkout order covering the whole cart total ──────
-    // Multi-vendor carts create several sub-orders above (one per vendor) —
-    // all of them share the same paymentReference so a single Nomba payment
-    // marks all of them paid together.
+    // IMPORTANT: this runs BEFORE clearing the cart. If Nomba's API call
+    // fails, the customer's cart stays intact so they don't lose their items
+    // and can simply retry — only cash_on_delivery/bank_transfer/successful
+    // nomba orders should result in an emptied cart.
     let checkoutLink = null;
 
     if (paymentMethod === 'nomba') {
@@ -129,11 +124,19 @@ exports.createOrder = async (req, res, next) => {
         checkoutLink = nombaOrder.checkoutLink;
       } catch (nombaError) {
         console.error('Nomba checkout creation failed:', nombaError);
-        // Orders already exist as 'pending' in the DB — nothing lost, but
-        // tell the customer immediately so they know payment didn't start.
+        // Cart is NOT cleared here — orders already exist as 'pending' in
+        // the DB (harmless, no payment happened), but the customer keeps
+        // their cart items so they can retry without re-adding everything.
         return ApiResponse.error(res, 'Could not start payment with Nomba. Please try again.', 502);
       }
     }
+
+    // Clear cart — reached only if payment method isn't 'nomba', or if the
+    // Nomba checkout order creation above succeeded.
+    await Cart.findOneAndUpdate(
+      { user: req.user._id },
+      { items: [] }
+    );
 
     ApiResponse.success(res, { orders, checkoutLink }, 'Order placed successfully', 201);
   } catch (error) {
